@@ -42,7 +42,7 @@ export declare type DeepUpdateFilterPartial<TSchema> = {
     $inc?: OnlyFieldsOfType<TSchema, NumericType | undefined> | DeepPartial<TSchema>;
     $min?: DeepPartial<TSchema>;
     $max?: DeepPartial<TSchema>;
-    $set?: { updatedAt: Date } | DeepPartial<TSchema>;
+    $set?: DeepPartial<TSchema>;
     $addToSet?: SetFields<TSchema>;
     $push?: PushOperator<TSchema>;
 };
