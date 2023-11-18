@@ -10,7 +10,7 @@ Typescript type safe for methods:
 updateOne()
 updateMany()
 find()
-findOne()
+getOne()
 insertOne()
 insertMany()
 deleteOne()
