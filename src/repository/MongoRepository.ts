@@ -1,11 +1,9 @@
 import { ObjectLiteral } from "../common/ObjectLiteral"
 import { Repository } from "./Repository"
-import { MongoFindManyOptions } from "../find-options/mongodb/MongoFindManyOptions"
 import { MongoEntityManager } from "../entity-manager/MongoEntityManager"
 import { QueryRunner } from "../query-runner/QueryRunner"
 import { SelectQueryBuilder } from "../query-builder/SelectQueryBuilder"
 import { TypeORMError } from "../error/TypeORMError"
-import { MongoFindOneOptions } from "../find-options/mongodb/MongoFindOneOptions"
 import { FindOneOptions } from "../find-options/FindOneOptions"
 
 import {
@@ -18,16 +16,13 @@ import {
     AnyBulkWriteOperation,
     BulkWriteOptions,
     BulkWriteResult,
-    Collection,
     CollStats,
     CollStatsOptions,
     CommandOperationOptions,
     CountOptions,
     DeleteOptions,
     DeleteResult,
-    Document,
     Filter,
-    FilterOperators,
     FindCursor,
     FindOneAndDeleteOptions,
     FindOneAndReplaceOptions,
@@ -35,17 +30,21 @@ import {
     IndexDescription,
     InsertManyResult,
     InsertOneOptions,
-    InsertOneResult,
     ListIndexesCursor,
     ListIndexesOptions,
     OrderedBulkOperation,
     UnorderedBulkOperation,
-    UpdateFilter,
     UpdateOptions,
     UpdateResult,
     CountDocumentsOptions,
 } from "../driver/mongodb/typings"
-import { FindManyOptions } from "../find-options/FindManyOptions"
+
+import {
+    deepUpdateEntryToUpdateFilter,
+    DeepFilterPartial,
+    DeepUpdateFilterPartial,
+    deepEntryToFilter,
+} from './mongo.utils';
 
 /**
  * Repository used to manage mongodb documents of a single entity type.
@@ -85,43 +84,46 @@ export class MongoRepository<
         throw new TypeORMError(`Query Builder is not supported by MongoDB.`)
     }
 
-    /**
-     * Finds entities that match given find options or conditions.
-     */
-    find(
+
+    /*find(
         options?:
             | FindManyOptions<Entity>
             | Partial<Entity>
             | FilterOperators<Entity>,
     ): Promise<Entity[]> {
         return this.manager.find(this.metadata.target, options)
-    }
+    }*/
 
     /**
      * Finds entities that match given find options or conditions.
      */
-    findBy(where: any): Promise<Entity[]> {
+
+    /*findBy(where: any): Promise<Entity[]> {
         return this.manager.findBy(this.metadata.target, where)
-    }
+    }*/
 
     /**
      * Finds entities that match given find options or conditions.
      * Also counts all entities that match given conditions,
      * but ignores pagination settings (from and take options).
      */
-    findAndCount(
+    /*findAndCount(
         options?: MongoFindManyOptions<Entity>,
     ): Promise<[Entity[], number]> {
         return this.manager.findAndCount(this.metadata.target, options)
-    }
+    }*/
 
     /**
      * Finds entities that match given find options or conditions.
      * Also counts all entities that match given conditions,
      * but ignores pagination settings (from and take options).
      */
-    findAndCountBy(where: any): Promise<[Entity[], number]> {
+    /*findAndCountBy(where: any): Promise<[Entity[], number]> {
         return this.manager.findAndCountBy(this.metadata.target, where)
+    }*/
+
+    getAndCountBy(where: DeepFilterPartial<Entity>): Promise<[Entity[], number]> {
+        return this.manager.findAndCountBy(this.metadata.target,  deepEntryToFilter(where));
     }
 
     /**
@@ -134,25 +136,41 @@ export class MongoRepository<
      *     id: In([1, 2, 3])
      * })
      */
-    findByIds(ids: any[], options?: any): Promise<Entity[]> {
+    /*findByIds(ids: any[], options?: any): Promise<Entity[]> {
         return this.manager.findByIds(this.metadata.target, ids, options)
-    }
+    }*/
 
     /**
      * Finds first entity that matches given find options.
      */
-    async findOne(
+    /*async findOne(
         options: MongoFindOneOptions<Entity>,
     ): Promise<Entity | null> {
         return this.manager.findOne(this.metadata.target, options)
+    }*/
+
+    getOneBy(
+        where?: DeepFilterPartial<Entity> | ObjectId,
+    ): Promise<Entity | null> {
+        const newQuery = where instanceof ObjectId ? { _id: where } : where;
+        return this.manager.findOneBy(this.metadata.target, deepEntryToFilter(newQuery));
+    }
+
+    getManyBy(
+        where?: DeepFilterPartial<Entity> | ObjectId[],
+    ): Promise<Entity[]> {
+        const newQuery = Array.isArray(where) && where.length > 0 && where[0] instanceof ObjectId
+            ? { _id: { $in: where } }
+            : deepEntryToFilter(where as DeepFilterPartial<Entity | null>);
+        return this.manager.find(this.metadata.target, newQuery);
     }
 
     /**
      * Finds first entity that matches given WHERE conditions.
      */
-    async findOneBy(where: any): Promise<Entity | null> {
+    /*async findOneBy(where: any): Promise<Entity | null> {
         return this.manager.findOneBy(this.metadata.target, where)
-    }
+    }*/
 
     /**
      * Finds entity that matches given id.
@@ -296,20 +314,20 @@ export class MongoRepository<
      * Delete multiple documents on MongoDB.
      */
     deleteMany(
-        query: ObjectLiteral,
+        query: DeepFilterPartial<Entity>,
         options?: DeleteOptions,
     ): Promise<DeleteResult> {
-        return this.manager.deleteMany(this.metadata.tableName, query, options)
+        return this.manager.deleteMany(this.metadata.tableName, deepEntryToFilter(query), options)
     }
 
     /**
      * Delete a document on MongoDB.
      */
     deleteOne(
-        query: ObjectLiteral,
+        query: DeepFilterPartial<Entity>,
         options?: DeleteOptions,
     ): Promise<DeleteResult> {
-        return this.manager.deleteOne(this.metadata.tableName, query, options)
+        return this.manager.deleteOne(this.metadata.tableName, deepEntryToFilter(query), options)
     }
 
     /**
@@ -353,20 +371,20 @@ export class MongoRepository<
      * Find a document and delete it in one atomic operation, requires a write lock for the duration of the operation.
      */
     findOneAndDelete(
-        query: ObjectLiteral,
+        query: DeepFilterPartial<Entity>,
         options?: FindOneAndDeleteOptions,
-    ): Promise<Document> {
+    ): Promise<Entity> {
         return this.manager.findOneAndDelete(
             this.metadata.tableName,
-            query,
+            deepEntryToFilter(query),
             options,
-        )
+        ) as Promise<Entity>;
     }
 
     /**
      * Find a document and replace it in one atomic operation, requires a write lock for the duration of the operation.
      */
-    findOneAndReplace(
+    /*findOneAndReplace(
         query: ObjectLiteral,
         replacement: Object,
         options?: FindOneAndReplaceOptions,
@@ -377,12 +395,25 @@ export class MongoRepository<
             replacement,
             options,
         )
+    }*/
+
+    findOneAndReplace(
+        query: DeepFilterPartial<Entity>,
+        replacement: DeepUpdateFilterPartial<Entity>,
+        options?: FindOneAndReplaceOptions,
+    ): Promise<Entity> {
+        return this.manager.findOneAndReplace(
+            this.metadata.tableName,
+            deepEntryToFilter(query),
+            deepUpdateEntryToUpdateFilter(replacement),
+            options,
+        ) as Promise<Entity>;
     }
 
     /**
      * Find a document and update it in one atomic operation, requires a write lock for the duration of the operation.
      */
-    findOneAndUpdate(
+    /*findOneAndUpdate(
         query: ObjectLiteral,
         update: Object,
         options?: FindOneAndUpdateOptions,
@@ -393,6 +424,19 @@ export class MongoRepository<
             update,
             options,
         )
+    }*/
+
+    findOneAndUpdate(
+        query: DeepFilterPartial<Entity>,
+        update: DeepUpdateFilterPartial<Entity>,
+        options?: FindOneAndUpdateOptions,
+    ): Promise<Entity> {
+        return this.manager.findOneAndUpdate(
+            this.metadata.tableName,
+            deepEntryToFilter(query),
+            deepUpdateEntryToUpdateFilter(update),
+            options,
+        ) as Promise<Entity>;
     }
 
     /**
@@ -447,21 +491,36 @@ export class MongoRepository<
     /**
      * Inserts an array of documents into MongoDB.
      */
-    insertMany(
+    /*insertMany(
         docs: ObjectLiteral[],
         options?: BulkWriteOptions,
     ): Promise<InsertManyResult<Document>> {
         return this.manager.insertMany(this.metadata.tableName, docs, options)
+    }*/
+
+    insertMany(
+        docs: NonNullable<Entity>[],
+        options?: BulkWriteOptions,
+    ): Promise<InsertManyResult<Entity>> {
+        return this.manager.insertMany(this.metadata.tableName, docs, options);
     }
 
     /**
      * Inserts a single document into MongoDB.
      */
-    insertOne(
+    /*insertOne(
         doc: ObjectLiteral,
         options?: InsertOneOptions,
     ): Promise<InsertOneResult> {
         return this.manager.insertOne(this.metadata.tableName, doc, options)
+    }*/
+
+    public async insertOne(
+        data: NonNullable<Entity>,
+        options?: InsertOneOptions,
+    ): Promise<Entity> {
+        return this.manager.insertOne(this.metadata.tableName, data, options)
+            .then((res) => ({ id: res.insertedId, ...data } as Entity));
     }
 
     /**
@@ -484,12 +543,12 @@ export class MongoRepository<
     /**
      * Reindex all indexes on the collection Warning: reIndex is a blocking operation (indexes are rebuilt in the foreground) and will be slow for large collections.
      */
-    rename(
+    /*rename(
         newName: string,
         options?: { dropTarget?: boolean },
     ): Promise<Collection<Document>> {
         return this.manager.rename(this.metadata.tableName, newName, options)
-    }
+    }*/
 
     /**
      * Replace a document on MongoDB.
@@ -498,13 +557,13 @@ export class MongoRepository<
         query: ObjectLiteral,
         doc: ObjectLiteral,
         options?: ReplaceOptions,
-    ): Promise<Document | UpdateResult> {
+    ): Promise<Entity | UpdateResult> {
         return this.manager.replaceOne(
             this.metadata.tableName,
             query,
             doc,
             options,
-        )
+        ) as Promise<Entity | UpdateResult>;
     }
 
     /**
@@ -517,7 +576,7 @@ export class MongoRepository<
     /**
      * Update multiple documents on MongoDB.
      */
-    updateMany(
+    /*updateMany(
         query: ObjectLiteral,
         update: UpdateFilter<Document>,
         options?: UpdateOptions,
@@ -528,11 +587,28 @@ export class MongoRepository<
             update,
             options,
         )
+    }*/
+
+    updateMany(
+        query: DeepFilterPartial<Entity> | ObjectId[],
+        data: DeepUpdateFilterPartial<Entity>,
+        options?: UpdateOptions,
+    ): Promise<Entity | UpdateResult> {
+        const newQuery = Array.isArray(query) && query.length > 0 && query[0] instanceof ObjectId
+            ? { _id: { $in: query } }
+            : query;
+        return this.manager.updateMany(
+            this.metadata.tableName,
+            deepEntryToFilter({ where: newQuery }),
+            deepUpdateEntryToUpdateFilter<Entity>(data),
+            options
+        ) as Promise<Entity | UpdateResult>;
     }
 
     /**
      * Update a single document on MongoDB.
      */
+    /*
     updateOne(
         query: ObjectLiteral,
         update: UpdateFilter<Document>,
@@ -544,5 +620,19 @@ export class MongoRepository<
             update,
             options,
         )
+    }*/
+
+    updateOne(
+        query: DeepFilterPartial<Entity> | ObjectId,
+        data: DeepUpdateFilterPartial<Entity>,
+        options?: UpdateOptions,
+    ): Promise<Entity | UpdateResult> {
+        const newQuery = query instanceof ObjectId ? { _id: query } : query;
+        return this.manager.updateOne(
+            this.metadata.tableName,
+            deepEntryToFilter(newQuery),
+            deepUpdateEntryToUpdateFilter<Entity>(data),
+            options
+        ) as Promise<Entity | UpdateResult>;
     }
 }
