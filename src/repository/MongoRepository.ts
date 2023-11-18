@@ -94,6 +94,22 @@ export class MongoRepository<
         return this.manager.find(this.metadata.target, options)
     }*/
 
+    find(
+        options?: FindManyOptions<Entity> | DeepFilterPartial<Entity> | ObjectId[],
+    ): Promise<Entity[]> {
+        const newQuery = Array.isArray(where) && where.length > 0 && options[0] instanceof ObjectId
+            ? { _id: { $in: options } }
+            : deepEntryToFilter(options as DeepFilterPartial<Entity>);
+        return this.manager.find(this.metadata.target, newQuery);
+    }
+
+    async getOne(
+        where: DeepFilterPartial<Entity>,
+    ): Promise<Entity | null> {
+        const newQuery = where instanceof ObjectId ? { _id: where } : deepEntryToFilter(where);
+        return this.manager.findOne(this.metadata.target, newQuery as MongoFindOneOptions<Entity>)
+    }
+
     /**
      * Finds entities that match given find options or conditions.
      */
@@ -148,22 +164,6 @@ export class MongoRepository<
     ): Promise<Entity | null> {
         return this.manager.findOne(this.metadata.target, options)
     }*/
-
-    getOneBy(
-        where?: DeepFilterPartial<Entity> | ObjectId,
-    ): Promise<Entity | null> {
-        const newQuery = where instanceof ObjectId ? { _id: where } : where;
-        return this.manager.findOneBy(this.metadata.target, deepEntryToFilter(newQuery));
-    }
-
-    getManyBy(
-        where?: DeepFilterPartial<Entity> | ObjectId[],
-    ): Promise<Entity[]> {
-        const newQuery = Array.isArray(where) && where.length > 0 && where[0] instanceof ObjectId
-            ? { _id: { $in: where } }
-            : deepEntryToFilter(where as DeepFilterPartial<Entity | null>);
-        return this.manager.find(this.metadata.target, newQuery);
-    }
 
     /**
      * Finds first entity that matches given WHERE conditions.
