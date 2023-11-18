@@ -5,6 +5,8 @@ Pure support for MongoDb in TypeOrm
 
 ## Improve:
 
+Typescript type safe for methods:
+
 updateOne()
 updateMany()
 find()
