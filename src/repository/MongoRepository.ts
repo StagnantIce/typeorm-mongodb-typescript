@@ -5,6 +5,7 @@ import { QueryRunner } from "../query-runner/QueryRunner"
 import { SelectQueryBuilder } from "../query-builder/SelectQueryBuilder"
 import { TypeORMError } from "../error/TypeORMError"
 import { FindOneOptions } from "../find-options/FindOneOptions"
+import { FindManyOptions } from "../find-options/FindManyOptions"
 
 import {
     CreateIndexesOptions,
@@ -104,7 +105,7 @@ export class MongoRepository<
     }
 
     async getOne(
-        where: DeepFilterPartial<Entity>,
+        where: DeepFilterPartial<Entity> | ObjectId,
     ): Promise<Entity | null> {
         const newQuery = where instanceof ObjectId ? { _id: where } : deepEntryToFilter(where);
         return this.manager.findOne(this.metadata.target, newQuery as MongoFindOneOptions<Entity>)
@@ -324,10 +325,11 @@ export class MongoRepository<
      * Delete a document on MongoDB.
      */
     deleteOne(
-        query: DeepFilterPartial<Entity>,
+        query: DeepFilterPartial<Entity> | ObjectId,
         options?: DeleteOptions,
     ): Promise<DeleteResult> {
-        return this.manager.deleteOne(this.metadata.tableName, deepEntryToFilter(query), options)
+        const newQuery = where instanceof ObjectId ? { _id: where } : deepEntryToFilter(where);
+        return this.manager.deleteOne(this.metadata.tableName, newQuery, options)
     }
 
     /**
