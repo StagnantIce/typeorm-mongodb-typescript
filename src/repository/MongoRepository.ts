@@ -98,7 +98,7 @@ export class MongoRepository<
     find(
         options?: FindManyOptions<Entity> | DeepFilterPartial<Entity> | ObjectId[],
     ): Promise<Entity[]> {
-        const newQuery = Array.isArray(where) && where.length > 0 && options[0] instanceof ObjectId
+        const newQuery = Array.isArray(options) && options.length > 0 && options[0] instanceof ObjectId
             ? { _id: { $in: options } }
             : deepEntryToFilter(options as DeepFilterPartial<Entity>);
         return this.manager.find(this.metadata.target, newQuery);
